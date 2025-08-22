@@ -1,3 +1,4 @@
+import React, { useEffect } from "react";
 import {
   View,
   Text,
@@ -6,75 +7,57 @@ import {
   RefreshControl,
 } from "react-native";
 import { useAuthStore } from "../../store/authStore";
-
+import { useFeedStore } from "../../store/useFeedStore";
 import { Image } from "expo-image";
-import { useEffect, useState } from "react";
-
+import { Ionicons } from "@expo/vector-icons";
+import { useInfiniteQuery } from "@tanstack/react-query";
+import axios from "axios";
 import styles from "../../assets/styles/home.styles";
 import { API_URL } from "../../constants/api";
-import { Ionicons } from "@expo/vector-icons";
 import { formatPublishDate } from "../../lib/utils";
 import COLORS from "../../constants/colors";
 import Loader from "../../components/Loader";
 
-export const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
 export default function Home() {
   const { token } = useAuthStore();
-  const [books, setBooks] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(true);
+  const { shuffledFeed, setShuffledFeed } = useFeedStore();
 
-  const fetchBooks = async (pageNum = 1, refresh = false) => {
-    try {
-      if (refresh) setRefreshing(true);
-      else if (pageNum === 1) setLoading(true);
-
-      const response = await fetch(`${API_URL}books?page=${pageNum}&limit=3`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      const data = await response.json();
-      if (!response.ok)
-        throw new Error(data.message || "Failed to fetch books");
-
-      // todo fix it later
-      // setBooks((prevBooks) => [...prevBooks, ...data.books]);
-
-      const uniqueBooks =
-        refresh || pageNum === 1
-          ? data.books
-          : Array.from(
-              new Set([...books, ...data.books].map((book) => book._id))
-            ).map((id) =>
-              [...books, ...data.books].find((book) => book._id === id)
-            );
-
-      setBooks(uniqueBooks);
-
-      setHasMore(pageNum < data.totalPages);
-      setPage(pageNum);
-    } catch (error) {
-      console.log("Error fetching books", error);
-    } finally {
-      if (refresh) {
-        await sleep(800);
-        setRefreshing(false);
-      } else setLoading(false);
-    }
+  // 🔹 API Call
+  const fetchBooks = async ({ pageParam = 1 }) => {
+    const response = await axios.get(`${API_URL}books`, {
+      params: { page: pageParam, limit: 3 },
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return response.data;
   };
 
+  // 🔹 TanStack Infinite Query
+  const {
+    data,
+    isLoading,
+    isError,
+    refetch,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isRefetching,
+  } = useInfiniteQuery({
+    queryKey: ["books"],
+    queryFn: fetchBooks,
+    getNextPageParam: (lastPage, allPages) => {
+      if (allPages.length < lastPage.totalPages) return allPages.length + 1;
+      return undefined;
+    },
+    staleTime: 1000 * 60 * 5, // 5 min cache
+  });
+
+  // 🔹 Update shuffled feed whenever data changes
   useEffect(() => {
-    fetchBooks();
-  }, []);
-
-  const handleLoadMore = async () => {
-    if (hasMore && !loading && !refreshing) {
-      await fetchBooks(page + 1);
+    if (data?.pages) {
+      const allBooks = data.pages.flatMap((page) => page.books); // correct key
+      setShuffledFeed(allBooks); // shuffle happens inside zustand
     }
-  };
+  }, [data]);
 
   const renderItem = ({ item }) => (
     <View style={styles.bookCard}>
@@ -125,25 +108,39 @@ export default function Home() {
     return stars;
   };
 
-  if (loading) return <Loader />;
+  if (isLoading) return <Loader />;
+
+  if (isError)
+    return (
+      <View style={styles.emptyContainer}>
+        <Ionicons
+          name="alert-circle-outline"
+          size={60}
+          color={COLORS.primary}
+        />
+        <Text style={styles.emptyText}>Something went wrong</Text>
+      </View>
+    );
 
   return (
     <View style={styles.container}>
       <FlatList
-        data={books}
+        data={shuffledFeed} // display shuffled feed
         renderItem={renderItem}
         keyExtractor={(item) => item._id}
         contentContainerStyle={styles.listContainer}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
-            refreshing={refreshing}
-            onRefresh={() => fetchBooks(1, true)}
+            refreshing={isRefetching}
+            onRefresh={refetch} // refetch + shuffle again
             colors={[COLORS.primary]}
             tintColor={COLORS.primary}
           />
         }
-        onEndReached={handleLoadMore}
+        onEndReached={() => {
+          if (hasNextPage && !isFetchingNextPage) fetchNextPage();
+        }}
         onEndReachedThreshold={0.1}
         ListHeaderComponent={
           <View style={styles.header}>
@@ -154,7 +151,7 @@ export default function Home() {
           </View>
         }
         ListFooterComponent={
-          hasMore && books.length > 0 ? (
+          isFetchingNextPage ? (
             <ActivityIndicator
               style={styles.footerLoader}
               size="small"
