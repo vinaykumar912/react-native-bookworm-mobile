@@ -108,7 +108,7 @@ export default function Home() {
     return stars;
   };
 
-  if (isLoading) return <Loader />;
+  if (isLoading && !data) return <Loader />;
 
   if (isError)
     return (
@@ -132,7 +132,7 @@ export default function Home() {
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
-            refreshing={isRefetching}
+            refreshing={isRefetching && !isLoading}
             onRefresh={refetch} // refetch + shuffle again
             colors={[COLORS.primary]}
             tintColor={COLORS.primary}
