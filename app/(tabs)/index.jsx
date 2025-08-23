@@ -22,7 +22,7 @@ export default function Home() {
   const { token } = useAuthStore();
   // const { shuffledFeed, setShuffledFeed } = useFeedStore();
 
-  // 🔹 API Call
+  //  API Call
   const fetchBooks = async ({ pageParam = 1 }) => {
     const response = await axios.get(`${API_URL}books`, {
       params: { page: pageParam, limit: 3 },
@@ -31,7 +31,7 @@ export default function Home() {
     return response.data;
   };
 
-  // 🔹 TanStack Infinite Query
+  // TanStack Infinite Query
   const {
     data,
     isLoading,
@@ -51,10 +51,10 @@ export default function Home() {
     staleTime: 1000 * 60 * 5, // 5 min cache
   });
 
-  // 🔹 Flatten paginated data
+  //  Flatten paginated data
   const books = data?.pages.flatMap((page) => page.books) || [];
 
-  // // 🔹 Update shuffled feed whenever data changes
+  // //  Update shuffled feed whenever data changes
   // useEffect(() => {
   //   if (data?.pages) {
   //     const allBooks = data.pages.flatMap((page) => page.books); // correct key
@@ -136,7 +136,7 @@ export default function Home() {
         refreshControl={
           <RefreshControl
             refreshing={isRefetching && !isLoading}
-            onRefresh={refetch} // refetch + shuffle again
+            onRefresh={refetch} // refetch
             colors={[COLORS.primary]}
             tintColor={COLORS.primary}
           />
