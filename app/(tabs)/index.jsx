@@ -20,7 +20,7 @@ import Loader from "../../components/Loader";
 
 export default function Home() {
   const { token } = useAuthStore();
-  const { shuffledFeed, setShuffledFeed } = useFeedStore();
+  // const { shuffledFeed, setShuffledFeed } = useFeedStore();
 
   // 🔹 API Call
   const fetchBooks = async ({ pageParam = 1 }) => {
@@ -51,13 +51,16 @@ export default function Home() {
     staleTime: 1000 * 60 * 5, // 5 min cache
   });
 
-  // 🔹 Update shuffled feed whenever data changes
-  useEffect(() => {
-    if (data?.pages) {
-      const allBooks = data.pages.flatMap((page) => page.books); // correct key
-      setShuffledFeed(allBooks); // shuffle happens inside zustand
-    }
-  }, [data]);
+  // 🔹 Flatten paginated data
+  const books = data?.pages.flatMap((page) => page.books) || [];
+
+  // // 🔹 Update shuffled feed whenever data changes
+  // useEffect(() => {
+  //   if (data?.pages) {
+  //     const allBooks = data.pages.flatMap((page) => page.books); // correct key
+  //     setShuffledFeed(allBooks); // shuffle happens inside zustand
+  //   }
+  // }, [data]);
 
   const renderItem = ({ item }) => (
     <View style={styles.bookCard}>
@@ -125,7 +128,7 @@ export default function Home() {
   return (
     <View style={styles.container}>
       <FlatList
-        data={shuffledFeed} // display shuffled feed
+        data={books} // display shuffled feed
         renderItem={renderItem}
         keyExtractor={(item) => item._id}
         contentContainerStyle={styles.listContainer}
