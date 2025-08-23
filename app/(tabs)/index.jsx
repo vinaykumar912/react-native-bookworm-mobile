@@ -111,7 +111,7 @@ export default function Home() {
     return stars;
   };
 
-  if (isLoading && !data) return <Loader />;
+  if (isLoading && !isRefetching) return <Loader />;
 
   if (isError)
     return (
